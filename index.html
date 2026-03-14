@@ -220,8 +220,7 @@
             <div style="font-size:10px; font-weight:800; color:var(--primary-dark); opacity:0.5; letter-spacing:1px; margin-top:16px; margin-bottom:8px;">GOOGLE DRIVE</div>
             <div id="driveStatus" style="font-size:11px; text-align:center; margin-bottom:8px; color:#888;">Non connesso</div>
             <div class="modal-btns" style="margin-top:0; gap:8px;">
-                <button class="btn-save" style="margin-top:0; padding:12px; font-size:13px; background:#4285f4;" onclick="driveEsporta()">☁️ ESPORTA SU DRIVE</button>
-                <button class="btn-save" style="margin-top:0; padding:12px; font-size:13px; background:#4285f4;" onclick="driveImporta()">☁️ IMPORTA DA DRIVE</button>
+                <button class="btn-save" style="margin-top:0; padding:12px; font-size:13px; background:#4285f4;" onclick="driveSincronizza()">☁️ SINCRONIZZA</button>
             </div>
 
             <div class="modal-btns" style="margin-top:12px; gap:8px;">
@@ -821,6 +820,7 @@
                 driveSetStatus('✓ Connesso', '#5a9e6f');
                 if (driveOperazionePendente === 'esporta') { driveOperazionePendente = null; _driveEsporta(); }
                 if (driveOperazionePendente === 'importa') { driveOperazionePendente = null; _driveImporta(); }
+                if (driveOperazionePendente === 'sincronizza') { driveOperazionePendente = null; _driveImporta(); }
             }
         });
     }
@@ -840,6 +840,11 @@
         if (!driveTokenClient) driveInit();
         driveTokenClient.requestAccessToken({ prompt: driveToken ? '' : 'consent' });
         return false;
+    }
+
+    async function driveSincronizza() {
+        if (!driveEnsureToken('sincronizza')) return;
+        await _driveImporta();
     }
 
     async function driveEsporta() {
@@ -957,6 +962,35 @@
         );
         const data = await resp.json();
         return data.files && data.files.length > 0 ? data.files[0].id : null;
+    }
+
+    // Esportazione silenziosa — scatta solo se già autenticati, rinnova il token se scaduto
+    async function driveAutoEsporta() {
+        if (!driveTokenClient) return; // mai autenticato, non fare nulla
+
+        if (!driveToken || Date.now() >= driveTokenExpiry) {
+            // Token scaduto: prova a rinnovarlo silenziosamente
+            await new Promise((resolve) => {
+                const prevCallback = driveTokenClient.callback;
+                driveTokenClient.callback = (resp) => {
+                    driveTokenClient.callback = prevCallback;
+                    if (!resp.error) {
+                        driveToken = resp.access_token;
+                        driveTokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
+                        driveSetStatus('✓ Connesso', '#5a9e6f');
+                    }
+                    resolve();
+                };
+                driveTokenClient.requestAccessToken({ prompt: '' });
+            });
+            if (!driveToken || Date.now() >= driveTokenExpiry) return; // rinnovo fallito, skip
+        }
+
+        try {
+            await _driveEsporta();
+        } catch (e) {
+            console.warn('Auto-esportazione Drive fallita:', e);
+        }
     }
 
     window.onload = () => {
@@ -1143,12 +1177,14 @@
         toast.style.display = 'block';
         setTimeout(() => toast.style.display = 'none', 2000);
         render();
+        driveAutoEsporta();
     }
 
     function rimuovi(id) {
         let db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
         localStorage.setItem(DB_NAME, JSON.stringify(db.filter(item => item.id != id)));
         render();
+        driveAutoEsporta();
     }
 
     function getMonday(d) {
