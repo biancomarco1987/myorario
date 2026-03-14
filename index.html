@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="it" style="background-color: #f3f5f0;" data-theme="salvia">
+<head>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>MyOrario</title>
+
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('user_theme') || 'salvia';
+            const themes = { 'salvia': '#f3f5f0', 'napoli': '#e8f4f9', 'pomodoro': '#fdf2f0' };
+            const bgColor = themes[savedTheme] || '#f3f5f0';
+            document.documentElement.style.backgroundColor = bgColor;
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const meta = document.createElement('meta');
+            meta.name = "theme-color";
+            meta.content = bgColor;
+            document.head.appendChild(meta);
+        })();
+    </script>
+
+    <style>
+        :root {
+            --primary: #9caf88; --primary-dark: #6b7a5d; --bg: #f3f5f0;
+            --card: #ffffff; --text: #4a5d43; --danger: #c98e8e;
+            --nav-bg: #839671; --accent: #d1d9c9;
+            --cal-day: #c8d8be; --cal-day-text: #4a5d43;
+            --cal-smart: #c0ceb8; --cal-ferie: #dde5d8;
+        }
+        [data-theme="napoli"] {
+            --primary: #12a0d7; --primary-dark: #0b7ba6; --bg: #e8f4f9;
+            --text: #0a4d68; --nav-bg: #12a0d7; --accent: #b3e0f2;
+            --cal-day: #9fd4ed; --cal-day-text: #0a4d68;
+            --cal-smart: #8ecbe6; --cal-ferie: #c8eaf6;
+        }
+        [data-theme="pomodoro"] {
+            --primary: #ff8b7d; --primary-dark: #d96e62; --bg: #fdf2f0;
+            --text: #7a3a33; --nav-bg: #ff8b7d; --accent: #f9d5d1;
+            --cal-day: #f5bdb7; --cal-day-text: #7a3a33;
+            --cal-smart: #f0ada6; --cal-ferie: #fad5d1;
+        }
+
+        /* ── Tab archivio ── */
+        .archivio-tabs { display: flex; gap: 8px; margin-bottom: 15px; }
+        .tab-btn {
+            flex: 1; padding: 12px; border: none; border-radius: 15px;
+            font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 800;
+            cursor: pointer; letter-spacing: 0.5px;
+            background: var(--bg); color: var(--primary-dark);
+            transition: all 0.2s;
+        }
+        .tab-btn.active { background: var(--primary-dark); color: white; }
+
+        /* ── Navigazione mese archivio ── */
+        .mese-nav {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 0 12px;
+        }
+        .mese-nav-btn {
+            background: var(--bg); border: none; border-radius: 50%;
+            width: 36px; height: 36px; font-size: 18px; cursor: pointer;
+            color: var(--primary-dark); font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .mese-nav-titolo { font-weight: 900; font-size: 13px; color: var(--primary-dark); letter-spacing: 1px; }
+
+        /* ── Riepilogo mensile ── */
+        .riepilogo-mese { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 15px; }
+        .riepilogo-item { background: var(--bg); border-radius: 15px; padding: 12px; text-align: center; }
+        .riepilogo-label { font-size: 9px; font-weight: 800; color: var(--primary-dark); opacity: 0.7; text-transform: uppercase; margin-bottom: 4px; }
+        .riepilogo-val { font-size: 18px; font-weight: 900; color: var(--primary-dark); }
+        .riepilogo-val.deficit { color: var(--danger); }
+        .riepilogo-val.surplus { color: #5a9e6f; }
+
+        body { font-family: 'Montserrat', sans-serif; background: var(--bg); margin: 0; color: var(--text); overflow: hidden; transition: background 0.3s ease; height: 100vh; height: 100dvh; -webkit-tap-highlight-color: transparent;}
+
+        .header-top { display: flex; justify-content: space-between; padding: 18px 20px 0 20px; position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
+        .btn-settings { background: none; border: none; font-size: 24px; cursor: pointer; padding: 10px; color: var(--primary-dark); }
+
+        .bottom-nav { position: fixed; bottom: 20px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); left: 20px; right: 20px; background: var(--nav-bg); display: flex; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); height: 70px; border-radius: 30px; z-index: 1000; }
+        .nav-item { flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .nav-icon { font-size: 24px; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .nav-item.active .nav-icon { transform: translateY(-30px) scale(2.2); filter: drop-shadow(0 15px 10px rgba(0,0,0,0.3)); }
+
+        .page {
+            display: none;
+            padding: 65px 20px 0 20px;
+            padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+            height: 100vh; height: 100dvh;
+            width: 100%; box-sizing: border-box;
+            overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;
+            flex-direction: column; position: absolute; top: 0; left: 0; animation: fadeIn 0.2s ease-out;
+        }
+        .page.active { display: flex; }
+
+        .container-add { flex: 1; display: flex; flex-direction: column; justify-content: center; margin-bottom: 20px; position: relative; }
+        #toast-inserito { position: absolute; top: 5%; left: 50%; transform: translateX(-50%); background: var(--primary-dark); color: white; padding: 12px 30px; border-radius: 50px; font-weight: bold; display: none; z-index: 5000; }
+
+        .card { background: var(--card); padding: 25px; border-radius: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; box-sizing: border-box; }
+        input { width: 100%; padding: 18px; border: 2px solid var(--bg); border-radius: 18px; font-size: 16px; box-sizing: border-box; background: #fafbf9; color: var(--text); text-align: center; outline: none; }
+        label { display: block; font-size: 11px; margin-bottom: 10px; font-weight: 800; color: var(--primary-dark); text-transform: uppercase; text-align: center; }
+
+        .btn-save { width: 100%; padding: 20px; background: var(--primary-dark); color: white; border: none; border-radius: 20px; font-weight: bold; font-size: 17px; margin-top: 20px; cursor: pointer; }
+        .quick-buttons { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-quick { flex: 1; padding: 15px; background: var(--accent); color: var(--primary-dark); border: none; border-radius: 15px; font-weight: 800; font-size: 12px; cursor: pointer; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ── Calendario: celle ── */
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; }
+        .cal-header { font-size: 9px; font-weight: 800; color: var(--primary-dark); padding: 4px 0; }
+        .cal-cell { border-radius: 10px; padding: 4px 2px; min-height: 38px; }
+        .cal-cell-label { font-size: 11px; }
+        .cal-cell-sub { font-size: 8px; font-weight: 800; margin-top: 2px; }
+
+        /* ── Desktop: calendari più grandi ── */
+        @media (min-width: 768px) {
+            .cal-cell { min-height: 58px; border-radius: 14px; padding: 6px 4px; }
+            .cal-cell-label { font-size: 14px; }
+            .cal-cell-sub { font-size: 11px; margin-top: 4px; }
+            .cal-header { font-size: 12px; padding: 6px 0; }
+        }
+
+        .stats-box { background: var(--primary); color: white; padding: 35px 20px; border-radius: 30px; text-align: center; margin-top: 60px; }
+        .hours-val { font-size: 45px; font-weight: bold; }
+        .progress-bar { background: rgba(255,255,255,0.25); border-radius: 15px; height: 12px; margin: 20px 0; overflow: hidden; }
+        .progress-fill { background: white; height: 100%; width: 0%; transition: width 1s ease; }
+
+        .table-container { flex: 1; overflow-y: auto; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { font-size: 10px; color: var(--primary-dark); padding: 15px 2px; border-bottom: 2px solid var(--bg); }
+        td { padding: 12px 2px; border-bottom: 1px solid var(--bg); font-size: 12px; text-align: center; }
+        .td-del {
+            cursor: pointer;
+            color: var(--danger);
+            font-size: 22px;
+            font-weight: bold;
+            padding: 10px 15px;
+            line-height: 1;
+        }
+
+        /* ── NUOVO: Swipe-to-delete ── */
+        .swipe-row-wrapper {
+            position: relative;
+            overflow: hidden;
+        }
+        .swipe-row-wrapper .delete-bg {
+            position: absolute;
+            right: 0; top: 0; bottom: 0;
+            width: 80px;
+            background: var(--danger);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 22px;
+            border-radius: 0 12px 12px 0;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .swipe-row-wrapper tr {
+            transition: transform 0.15s ease;
+            display: table;
+            width: 100%;
+            background: white;
+            position: relative;
+        }
+        .swipe-row-wrapper.swiping .delete-bg { opacity: 1; }
+
+        /* ── NUOVO: Highlight turno odierno nella tabella ── */
+        tr.oggi-turno td {
+            background: var(--primary) !important;
+            color: white !important;
+            font-weight: 800;
+        }
+        tr.oggi-turno td:first-child {
+            border-radius: 12px 0 0 12px;
+        }
+        tr.oggi-turno td:last-child {
+            border-radius: 0 12px 12px 0;
+        }
+        tr.oggi-turno {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.12);
+        }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 3000; }
+        .modal-card { background: white; width: 85%; max-width: 320px; padding: 30px; border-radius: 30px; text-align: center; }
+        .modal-btns { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+        .theme-dot { width: 35px; height: 35px; border-radius: 50%; cursor: pointer; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .credits { font-size: 10px; font-style: italic; color: #777; margin-top: 15px; }
+        .stats-list { text-align: left; margin-top: 15px; max-height: 200px; overflow-y: auto; font-size: 14px; }
+        .stats-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .ferie-box { background: var(--bg); padding: 15px; border-radius: 20px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="header-main" class="header-top">
+        <button class="btn-settings" onclick="toggleMenu('modalStats', true)">📊</button>
+        <button class="btn-settings" onclick="toggleMenu('modalSettings', true)">⚙️</button>
+    </div>
+
+    <div id="modalSettings" class="modal-overlay">
+        <div class="modal-card">
+            <div style="font-weight: bold; margin-bottom: 15px; color: var(--primary-dark);">TEMI</div>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 20px;">
+                <div class="theme-dot" style="background: #9caf88;" onclick="setTheme('salvia')"></div>
+                <div class="theme-dot" style="background: #12a0d7;" onclick="setTheme('napoli')"></div>
+                <div class="theme-dot" style="background: #ff8b7d;" onclick="setTheme('pomodoro')"></div>
+            </div>
+
+            <div style="font-size:10px; font-weight:800; color:var(--primary-dark); opacity:0.5; letter-spacing:1px; margin-bottom:8px;">LOCALE</div>
+            <div class="modal-btns" style="margin-top:0; gap:8px;">
+                <button class="btn-save" style="margin-top:0; padding:12px; font-size:13px;" onclick="copiaPerSheets()">ESPORTA (COPIA)</button>
+                <button class="btn-save" style="margin-top:0; padding:12px; font-size:13px;" onclick="toggleMenu('modalImport', true); toggleMenu('modalSettings', false);">IMPORTA (INCOLLA)</button>
+            </div>
+
+            <div style="font-size:10px; font-weight:800; color:var(--primary-dark); opacity:0.5; letter-spacing:1px; margin-top:16px; margin-bottom:8px;">GOOGLE DRIVE</div>
+            <div id="driveStatus" style="font-size:11px; text-align:center; margin-bottom:8px; color:#888;">Non connesso</div>
+            <div class="modal-btns" style="margin-top:0; gap:8px;">
+                <button class="btn-save" style="margin-top:0; padding:12px; font-size:13px; background:#4285f4;" onclick="driveEsporta()">☁️ ESPORTA SU DRIVE</button>
+                <button class="btn-save" style="margin-top:0; padding:12px; font-size:13px; background:#4285f4;" onclick="driveImporta()">☁️ IMPORTA DA DRIVE</button>
+            </div>
+
+            <div class="modal-btns" style="margin-top:12px; gap:8px;">
+                <button class="btn-save" style="margin-top:0; padding:12px; font-size:13px; background:var(--danger);" onclick="toggleMenu('modalReset', true); toggleMenu('modalSettings', false);">CANCELLA TUTTO</button>
+                <button onclick="toggleMenu('modalSettings', false)" style="background:none; border:none; padding:10px; cursor:pointer;">CHIUDI</button>
+            </div>
+            <div class="credits">MyOrario, sviluppata da Marco Bianco</div>
+        </div>
+    </div>
+
+    <div id="modalStats" class="modal-overlay">
+        <div class="modal-card">
+            <div style="font-weight: bold; margin-bottom: 15px; color: var(--primary-dark);">STATISTICHE</div>
+            <div class="modal-btns">
+                <button class="btn-save" style="margin-top:0; padding:15px;" onclick="apriStatBP()">BUONI PASTO</button>
+                <button class="btn-save" style="margin-top:0; padding:15px;" onclick="apriStatExtra()">STRAORDINARIO</button>
+                <button class="btn-save" style="margin-top:0; padding:15px;" onclick="apriStatFerie()">FERIE</button>
+                <button onclick="toggleMenu('modalStats', false)" style="background:none; border:none; padding:10px; cursor:pointer;">CHIUDI</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalBP" class="modal-overlay">
+        <div class="modal-card">
+            <div style="font-weight: bold; margin-bottom: 5px; color: var(--primary-dark);">BUONI PASTO</div>
+            <div id="listaBP" class="stats-list"></div>
+            <div class="modal-btns">
+                <button onclick="toggleMenu('modalBP', false); toggleMenu('modalStats', true);" style="background:none; border:none; padding:10px; cursor:pointer; font-weight: bold; color: var(--primary-dark);">INDIETRO</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalExtra" class="modal-overlay">
+        <div class="modal-card">
+            <div style="font-weight: bold; margin-bottom: 5px; color: var(--primary-dark);">STRAORDINARI</div>
+            <div id="listaExtra" class="stats-list"></div>
+            <div class="modal-btns">
+                <button onclick="toggleMenu('modalExtra', false); toggleMenu('modalStats', true);" style="background:none; border:none; padding:10px; cursor:pointer; font-weight: bold; color: var(--primary-dark);">INDIETRO</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalFerie" class="modal-overlay">
+        <div class="modal-card">
+            <div style="font-weight: bold; margin-bottom: 15px; color: var(--primary-dark);">GESTIONE FERIE</div>
+            <div class="ferie-box">
+                <label style="margin-bottom:5px;">Spettanti</label>
+                <input type="number" id="ferieSpettanti" placeholder="Inserisci totale..." oninput="salvaFerieSpettanti()">
+                <div class="stats-row" style="margin-top:15px; border-bottom:none;">
+                    <span>Fruite:</span><b id="ferieFruite">0</b>
+                </div>
+                <div class="stats-row" style="border-bottom:none;">
+                    <span>Rimanenti:</span><b id="ferieRimanenti" style="color:var(--primary-dark);">0</b>
+                </div>
+            </div>
+            <div class="modal-btns">
+                <button onclick="toggleMenu('modalFerie', false); toggleMenu('modalStats', true);" style="background:none; border:none; padding:10px; cursor:pointer; font-weight: bold; color: var(--primary-dark);">INDIETRO</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalConflict" class="modal-overlay">
+        <div class="modal-card">
+            <div style="font-weight: bold; color: var(--primary-dark);">DATA GIÀ PRESENTE</div>
+            <p style="font-size: 13px; color: #666;">Sovrascrivere l'inserimento esistente?</p>
+            <div class="modal-btns">
+                <button class="btn-save" style="margin-top:0;" id="btnSovrascrivi">SÌ, SOVRASCRIVI</button>
+                <button onclick="toggleMenu('modalConflict', false)" style="background:none; border:none; padding:10px; cursor:pointer;">ANNULLA</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalImport" class="modal-overlay">
+        <div class="modal-card">
+            <div style="font-weight: bold; margin-bottom: 10px;">IMPORTA DATI</div>
+            <textarea id="importText" placeholder="Incolla qui..." style="width: 100%; height: 100px; border: 1px solid #ddd; border-radius: 10px; padding: 10px; font-size: 12px;"></textarea>
+            <div class="modal-btns">
+                <button class="btn-save" style="margin-top:0;" onclick="elaboraImportazione()">CONFERMA</button>
+                <button onclick="toggleMenu('modalImport', false)" style="background:none; border:none; padding:10px; cursor:pointer;">ANNULLA</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalReset" class="modal-overlay">
+        <div class="modal-card">
+            <div style="font-weight: bold; color: var(--danger);">RESET TOTALE?</div>
+            <div class="modal-btns">
+                <button class="btn-save" style="background:var(--danger); margin-top:0;" onclick="resetTotale()">ELIMINA TUTTO</button>
+                <button onclick="toggleMenu('modalReset', false)" style="background:none; border:none; padding:10px; cursor:pointer;">ANNULLA</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-add" class="page active">
+        <div class="container-add">
+            <div id="toast-inserito">INSERITO!</div>
+
+            <div class="card">
+                <input type="date" id="inData">
+                <div style="display: flex; gap: 15px; margin-top:20px;">
+                    <div style="flex:1"><label>Entrata</label><input type="time" id="inInizio"></div>
+                    <div style="flex:1"><label>Uscita</label><input type="time" id="inFine"></div>
+                </div>
+                <div style="display: flex; gap: 15px; margin-top:20px;">
+                    <div style="flex:1"><label>Pausa</label><input type="number" id="inPausa" value="30" inputmode="numeric"></div>
+                    <div style="flex:1"><label>Extra</label><input type="number" id="inStraord" value="0" inputmode="numeric"></div>
+                </div>
+                <div id="anteprimaOre" style="margin-top: 20px; text-align: center; font-weight: 800; color: var(--primary-dark); font-size: 14px; background: var(--bg); padding: 10px; border-radius: 15px; min-height: 1.2em;">
+                    ...
+                </div>
+                <button class="btn-save" onclick="checkConflitto('MANUALE')">INSERISCI</button>
+                <div class="quick-buttons">
+                    <button class="btn-quick" onclick="checkConflitto('SMART')">SMART</button>
+                    <button class="btn-quick" onclick="checkConflitto('FERIE')">FERIE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-week" class="page">
+        <div style="display: flex; gap: 10px;">
+            <div class="card" onclick="espandi('settimana')" id="cardSett"
+                 style="flex: 1; cursor: pointer; text-align: center; transition: box-shadow 0.2s;">
+                <label style="margin-bottom: 8px;">Settimana</label>
+                <div id="oreSettimana" style="font-size: 22px; font-weight: 900;">0h 0m</div>
+                <div id="mancantiSettimana" style="font-size: 10px; margin-top: 6px; color: var(--primary-dark); opacity: 0.7;">Target 36h</div>
+                <div class="progress-bar" style="margin: 10px 0 0 0;">
+                    <div id="barFill" class="progress-fill"></div>
+                </div>
+            </div>
+            <div class="card" onclick="espandi('mese')" id="cardMese"
+                 style="flex: 1; cursor: pointer; text-align: center; transition: box-shadow 0.2s;">
+                <label style="margin-bottom: 8px;">Mese</label>
+                <div id="oreMese" style="font-size: 22px; font-weight: 900;">0h 0m</div>
+                <div id="mancantiMese" style="font-size: 10px; margin-top: 6px; color: var(--primary-dark); opacity: 0.7;">Target mensile</div>
+                <div class="progress-bar" style="margin: 10px 0 0 0;">
+                    <div id="barFillMese" class="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="areaEspansa" class="card" style="margin-top: 15px; flex: 1; overflow-y: auto; padding: 0 10px;">
+            <div id="contenutoEspanso" style="padding: 10px 0;">
+                <p style="text-align:center; opacity:0.5; font-size: 13px;">Tocca una card per i dettagli</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-shifts" class="page">
+        <div class="card table-container">
+            <div style="padding: 15px; font-weight: 800; color: var(--primary-dark); text-align: center; border-bottom: 2px solid var(--bg); font-size: 12px; letter-spacing: 1px;">
+                CALENDARIO TURNI 2026
+            </div>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th style="width: 18%; text-align: center; padding-left: 10px;">DATA</th>
+                        <th style="width: 12%; text-align: center;">GIO</th>
+                        <th style="width: 42%; text-align: center;">MAT</th>
+                        <th style="width: 28%; text-align: center;">POM</th>
+                    </tr>
+                </thead>
+                <tbody id="corpoTurni">
+<tr><td>01/01</td><td>GIO</td><td colspan="2" style="color:var(--danger); font-size:9px;">CAPODANNO</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>02/01</td><td>VEN</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr><td>03/01</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>04/01</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>05/01</td><td>LUN</td><td>1 2 3 4 5 6 7 10</td><td>8 9 11 12</td></tr>
+<tr><td>06/01</td><td>MAR</td><td colspan="2" style="color:var(--danger); font-size:9px;">EPIFANIA</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>07/01</td><td>MER</td><td>1 2 3 4 5 6 7 10</td><td>8 9 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>08/01</td><td>GIO</td><td>1 2 3 5 6 7 8 12</td><td>4 9 10 11</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>09/01</td><td>VEN</td><td>1 3 4 7 8 9 10 12</td><td>2 5 6 11</td></tr>
+<tr><td>10/01</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>11/01</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>12/01</td><td>LUN</td><td>1 3 4 5 6 7 8 10</td><td>2 9 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>13/01</td><td>MAR</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>14/01</td><td>MER</td><td>1 3 4 5 6 7 8 10</td><td>2 9 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>15/01</td><td>GIO</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>16/01</td><td>VEN</td><td>1 2 3 4 5 6 7 12</td><td>8 9 10 11</td></tr>
+<tr><td>17/01</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>18/01</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>19/01</td><td>LUN</td><td>3 4 5 6 9 10 11 12</td><td>1 2 7 8</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>20/01</td><td>MAR</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>21/01</td><td>MER</td><td>3 4 5 6 9 10 11 12</td><td>1 2 7 8</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>22/01</td><td>GIO</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>23/01</td><td>VEN</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr><td>24/01</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>25/01</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>26/01</td><td>LUN</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>27/01</td><td>MAR</td><td>1 2 3 5 6 7 8 12</td><td>4 9 10 11</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>28/01</td><td>MER</td><td>1 2 3 4 5 6 7 10</td><td>8 9 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>29/01</td><td>GIO</td><td>1 2 3 5 6 7 8 12</td><td>4 9 10 11</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>30/01</td><td>VEN</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr><td>31/01</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>01/02</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>02/02</td><td>LUN</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>03/02</td><td>MAR</td><td>1 2 3 7 8 9 10 12</td><td>4 5 6 11</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>04/02</td><td>MER</td><td>1 3 4 5 6 7 8 10</td><td>2 9 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>05/02</td><td>GIO</td><td>1 2 3 8 9 10 11 12</td><td>4 5 6 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>06/02</td><td>VEN</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr><td>07/02</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>08/02</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>09/02</td><td>LUN</td><td>3 4 5 6 9 10 11 12</td><td>1 2 7 8</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>10/02</td><td>MAR</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>11/02</td><td>MER</td><td>3 4 5 6 9 10 11 12</td><td>1 2 7 8</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>12/02</td><td>GIO</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>13/02</td><td>VEN</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr><td>14/02</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>15/02</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>16/02</td><td>LUN</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>17/02</td><td>MAR</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>18/02</td><td>MER</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>19/02</td><td>GIO</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>20/02</td><td>VEN</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr><td>21/02</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>22/02</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>23/02</td><td>LUN</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>24/02</td><td>MAR</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>25/02</td><td>MER</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>26/02</td><td>GIO</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>27/02</td><td>VEN</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr><td>28/02</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>01/03</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>02/03</td><td>LUN</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>03/03</td><td>MAR</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>04/03</td><td>MER</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>05/03</td><td>GIO</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>06/03</td><td>VEN</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr><td>07/03</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>08/03</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>09/03</td><td>LUN</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>10/03</td><td>MAR</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>11/03</td><td>MER</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>12/03</td><td>GIO</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>13/03</td><td>VEN</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr><td>14/03</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>15/03</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>16/03</td><td>LUN</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>17/03</td><td>MAR</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>18/03</td><td>MER</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>19/03</td><td>GIO</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>20/03</td><td>VEN</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr><td>21/03</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>22/03</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>23/03</td><td>LUN</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>24/03</td><td>MAR</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>25/03</td><td>MER</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>26/03</td><td>GIO</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>27/03</td><td>VEN</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr><td>28/03</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>29/03</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>30/03</td><td>LUN</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>31/03</td><td>MAR</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>01/04</td><td>MER</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>02/04</td><td>GIO</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>03/04</td><td>VEN</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr><td>04/04</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>05/04</td><td>DOM</td><td colspan="2" style="color:var(--danger); font-size:9px;">PASQUA</td></tr>
+<tr><td>06/04</td><td>LUN</td><td colspan="2" style="color:var(--danger); font-size:9px;">PASQUETTA</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>07/04</td><td>MAR</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>08/04</td><td>MER</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>09/04</td><td>GIO</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>10/04</td><td>VEN</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr><td>11/04</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>12/04</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>13/04</td><td>LUN</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>14/04</td><td>MAR</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>15/04</td><td>MER</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>16/04</td><td>GIO</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>17/04</td><td>VEN</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr><td>18/04</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>19/04</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>20/04</td><td>LUN</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>21/04</td><td>MAR</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>22/04</td><td>MER</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>23/04</td><td>GIO</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>24/04</td><td>VEN</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr><td>25/04</td><td>SAB</td><td colspan="2" style="color:var(--danger); font-size:9px;">LIBERAZIONE</td></tr>
+<tr><td>26/04</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>27/04</td><td>LUN</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>28/04</td><td>MAR</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>29/04</td><td>MER</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>30/04</td><td>GIO</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr><td>01/05</td><td>VEN</td><td colspan="2" style="color:var(--danger); font-size:9px;">FESTA LAVORO</td></tr>
+<tr><td>02/05</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>03/05</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>04/05</td><td>LUN</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>05/05</td><td>MAR</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>06/05</td><td>MER</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>07/05</td><td>GIO</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>08/05</td><td>VEN</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr><td>09/05</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>10/05</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>11/05</td><td>LUN</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>12/05</td><td>MAR</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>13/05</td><td>MER</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>14/05</td><td>GIO</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>15/05</td><td>VEN</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr><td>16/05</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>17/05</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>18/05</td><td>LUN</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>19/05</td><td>MAR</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>20/05</td><td>MER</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>21/05</td><td>GIO</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>22/05</td><td>VEN</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr><td>23/05</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>24/05</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>25/05</td><td>LUN</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>26/05</td><td>MAR</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>27/05</td><td>MER</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>28/05</td><td>GIO</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>29/05</td><td>VEN</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr><td>30/05</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>31/05</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>01/06</td><td>LUN</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr><td>02/06</td><td>MAR</td><td colspan="2" style="color:var(--danger); font-size:9px;">REPUBBLICA</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>03/06</td><td>MER</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>04/06</td><td>GIO</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>05/06</td><td>VEN</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr><td>06/06</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>07/06</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>08/06</td><td>LUN</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>09/06</td><td>MAR</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>10/06</td><td>MER</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>11/06</td><td>GIO</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>12/06</td><td>VEN</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr><td>13/06</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>14/06</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>15/06</td><td>LUN</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>16/06</td><td>MAR</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>17/06</td><td>MER</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>18/06</td><td>GIO</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>19/06</td><td>VEN</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr><td>20/06</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>21/06</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>22/06</td><td>LUN</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>23/06</td><td>MAR</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>24/06</td><td>MER</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>25/06</td><td>GIO</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>26/06</td><td>VEN</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr><td>27/06</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>28/06</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>29/06</td><td>LUN</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>30/06</td><td>MAR</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>01/07</td><td>MER</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>02/07</td><td>GIO</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>03/07</td><td>VEN</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr><td>04/07</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>05/07</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>06/07</td><td>LUN</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>07/07</td><td>MAR</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>08/07</td><td>MER</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>09/07</td><td>GIO</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>10/07</td><td>VEN</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr><td>11/07</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>12/07</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>13/07</td><td>LUN</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>14/07</td><td>MAR</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>15/07</td><td>MER</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>16/07</td><td>GIO</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>17/07</td><td>VEN</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr><td>18/07</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>19/07</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>20/07</td><td>LUN</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>21/07</td><td>MAR</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>22/07</td><td>MER</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>23/07</td><td>GIO</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>24/07</td><td>VEN</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr><td>25/07</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>26/07</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>27/07</td><td>LUN</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>28/07</td><td>MAR</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>29/07</td><td>MER</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>30/07</td><td>GIO</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>31/07</td><td>VEN</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr><td>01/08</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>02/08</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>03/08</td><td>LUN</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>04/08</td><td>MAR</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>05/08</td><td>MER</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>06/08</td><td>GIO</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>07/08</td><td>VEN</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr><td>08/08</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>09/08</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>10/08</td><td>LUN</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>11/08</td><td>MAR</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>12/08</td><td>MER</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>13/08</td><td>GIO</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>14/08</td><td>VEN</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr><td>15/08</td><td>SAB</td><td colspan="2" style="color:var(--danger); font-size:9px;">FERRAGOSTO</td></tr>
+<tr><td>16/08</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>17/08</td><td>LUN</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>18/08</td><td>MAR</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>19/08</td><td>MER</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>20/08</td><td>GIO</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>21/08</td><td>VEN</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr><td>22/08</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>23/08</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>24/08</td><td>LUN</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>25/08</td><td>MAR</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>26/08</td><td>MER</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>27/08</td><td>GIO</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>28/08</td><td>VEN</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr><td>29/08</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>30/08</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>31/08</td><td>LUN</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>01/09</td><td>MAR</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>02/09</td><td>MER</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>03/09</td><td>GIO</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>04/09</td><td>VEN</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr><td>05/09</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>06/09</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>07/09</td><td>LUN</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>08/09</td><td>MAR</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>09/09</td><td>MER</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>10/09</td><td>GIO</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>11/09</td><td>VEN</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr><td>12/09</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>13/09</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>14/09</td><td>LUN</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>15/09</td><td>MAR</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>16/09</td><td>MER</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>17/09</td><td>GIO</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>18/09</td><td>VEN</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr><td>19/09</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>20/09</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>21/09</td><td>LUN</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>22/09</td><td>MAR</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>23/09</td><td>MER</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>24/09</td><td>GIO</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>25/09</td><td>VEN</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr><td>26/09</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>27/09</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>28/09</td><td>LUN</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>29/09</td><td>MAR</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>30/09</td><td>MER</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>01/10</td><td>GIO</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>02/10</td><td>VEN</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr><td>03/10</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>04/10</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>05/10</td><td>LUN</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>06/10</td><td>MAR</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>07/10</td><td>MER</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>08/10</td><td>GIO</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>09/10</td><td>VEN</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr><td>10/10</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>11/10</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>12/10</td><td>LUN</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>13/10</td><td>MAR</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>14/10</td><td>MER</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>15/10</td><td>GIO</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>16/10</td><td>VEN</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr><td>17/10</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>18/10</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>19/10</td><td>LUN</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>20/10</td><td>MAR</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>21/10</td><td>MER</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>22/10</td><td>GIO</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>23/10</td><td>VEN</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr><td>24/10</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>25/10</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>26/10</td><td>LUN</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>27/10</td><td>MAR</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>28/10</td><td>MER</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>29/10</td><td>GIO</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>30/10</td><td>VEN</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr><td>31/10</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>01/11</td><td>DOM</td><td colspan="2" style="color:var(--danger); font-size:9px;">OGNISSANTI</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>02/11</td><td>LUN</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>03/11</td><td>MAR</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>04/11</td><td>MER</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>05/11</td><td>GIO</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>06/11</td><td>VEN</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr><td>07/11</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>08/11</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>09/11</td><td>LUN</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>10/11</td><td>MAR</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>11/11</td><td>MER</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>12/11</td><td>GIO</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>13/11</td><td>VEN</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr><td>14/11</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>15/11</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>16/11</td><td>LUN</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>17/11</td><td>MAR</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>18/11</td><td>MER</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>19/11</td><td>GIO</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>20/11</td><td>VEN</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr><td>21/11</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>22/11</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>23/11</td><td>LUN</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>24/11</td><td>MAR</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>25/11</td><td>MER</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>26/11</td><td>GIO</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>27/11</td><td>VEN</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr><td>28/11</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>29/11</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>30/11</td><td>LUN</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>01/12</td><td>MAR</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>02/12</td><td>MER</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>03/12</td><td>GIO</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>04/12</td><td>VEN</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr><td>05/12</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>06/12</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>07/12</td><td>LUN</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr><td>08/12</td><td>MAR</td><td colspan="2" style="color:var(--danger); font-size:9px;">IMMACOLATA</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>09/12</td><td>MER</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>10/12</td><td>GIO</td><td>3 4 7 8 9 10 11 12</td><td>1 2 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>11/12</td><td>VEN</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr><td>12/12</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>13/12</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>14/12</td><td>LUN</td><td>1 2 3 7 8 9 10 11</td><td>4 5 6 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>15/12</td><td>MAR</td><td>3 4 5 6 7 8 9 10</td><td>1 2 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>16/12</td><td>MER</td><td>1 2 7 8 9 10 11 12</td><td>3 4 5 6</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>17/12</td><td>GIO</td><td>1 2 3 4 5 6 11 12</td><td>7 8 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>18/12</td><td>VEN</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr><td>19/12</td><td>SAB</td><td colspan="2">-</td></tr>
+<tr><td>20/12</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>21/12</td><td>LUN</td><td>1 2 3 4 5 7 8 12</td><td>6 9 10 11</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>22/12</td><td>MAR</td><td>3 4 5 6 7 9 10 11</td><td>1 2 8 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>23/12</td><td>MER</td><td>1 2 3 4 5 7 8 11</td><td>6 9 10 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>24/12</td><td>GIO</td><td>1 2 5 6 7 8 9 10</td><td>3 4 11 12</td></tr>
+<tr><td>25/12</td><td>VEN</td><td colspan="2" style="color:var(--danger); font-size:9px;">NATALE</td></tr>
+<tr><td>26/12</td><td>SAB</td><td colspan="2" style="color:var(--danger); font-size:9px;">S. STEFANO</td></tr>
+<tr><td>27/12</td><td>DOM</td><td colspan="2">-</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>28/12</td><td>LUN</td><td>1 2 3 4 5 6 7 9</td><td>8 10 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>29/12</td><td>MAR</td><td>1 2 5 6 7 8 11 12</td><td>3 4 9 10</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>30/12</td><td>MER</td><td>1 2 3 4 5 6 9 10</td><td>7 8 11 12</td></tr>
+<tr style="background: rgba(156, 175, 136, 0.1);"><td>31/12</td><td>GIO</td><td>1 2 3 5 6 7 8 11</td><td>4 9 10 12</td></tr>
+                </tbody>
+            </table>
+            <div style="padding: 20px; font-size: 9px; color: var(--primary-dark); text-align: center; opacity: 0.6; font-style: italic;">
+                * Verificato: 8 op. Mattina / 4 op. Pomeriggio
+            </div>
+        </div>
+    </div>
+
+    <div id="page-history" class="page">
+        <div style="display:flex; flex-direction:column; flex:1; min-height:0;">
+            <div class="archivio-tabs">
+                <button class="tab-btn active" id="tabMese" onclick="switchArchivio('mese')">MESE</button>
+                <button class="tab-btn" id="tabSettimana" onclick="switchArchivio('settimana')">SETTIMANA</button>
+            </div>
+            <div id="archivioMese" class="card" style="flex:1; overflow-y:auto;">
+                <div class="mese-nav">
+                    <button class="mese-nav-btn" onclick="mesePrecedente()">&#8249;</button>
+                    <span class="mese-nav-titolo" id="titoloMeseArchivio">—</span>
+                    <button class="mese-nav-btn" onclick="meseSuccessivo()">&#8250;</button>
+                </div>
+                <div id="calendarioArchivio"></div>
+                <div id="riepilogoArchivio" class="riepilogo-mese"></div>
+            </div>
+            <div id="archivioSettimana" class="card table-container" style="display:none; flex:1; overflow-y:auto;">
+                <table>
+                    <thead><tr><th>Data</th><th>Orario</th><th>P</th><th>E</th><th>Tot</th><th>BP</th><th></th></tr></thead>
+                    <tbody id="areaStorico"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <div class="nav-item active" onclick="switchPage('page-add', this)"><span class="nav-icon">🕒</span></div>
+        <div class="nav-item" onclick="switchPage('page-week', this)"><span class="nav-icon">📋</span></div>
+        <div class="nav-item" onclick="switchPage('page-shifts', this)"><span class="nav-icon">🗓️</span></div>
+        <div class="nav-item" onclick="switchPage('page-history', this)"><span class="nav-icon">📁</span></div>
+    </nav>
+
+<script>
+    const DB_NAME = 'work_db_v34';
+    const MIN_TARGET = 432;
+    const LIMITE_INGRESSO = '07:30';
+    const LIMITE_USCITA = '18:30';
+    const CLIENT_ID = '418036511743-f593ij8oejm606r4l1lkfrsmdavbf03s.apps.googleusercontent.com'; // ← incolla qui il tuo Client ID
+    const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+    const DRIVE_FILE_NAME = 'MyOrario_dati.txt';
+
+    let modalitaCorrente = null;
+    let vistaArchivio = 'mese';
+    let archivioAnno = new Date().getFullYear();
+    let archivioMeseIdx = new Date().getMonth();
+
+    // ── Stato Google Drive ──
+    let driveToken = null;
+    let driveTokenExpiry = 0;
+    let driveTokenClient = null;
+    let driveOperazionePendente = null; // 'esporta' | 'importa'
+
+    function driveInit() {
+        if (!window.google) return;
+        driveTokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: DRIVE_SCOPE,
+            callback: (resp) => {
+                if (resp.error) { driveSetStatus('Errore autenticazione', 'red'); return; }
+                driveToken = resp.access_token;
+                driveTokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
+                driveSetStatus('✓ Connesso', '#5a9e6f');
+                if (driveOperazionePendente === 'esporta') { driveOperazionePendente = null; _driveEsporta(); }
+                if (driveOperazionePendente === 'importa') { driveOperazionePendente = null; _driveImporta(); }
+            }
+        });
+    }
+
+    function driveSetStatus(msg, color) {
+        const el = document.getElementById('driveStatus');
+        if (el) { el.innerText = msg; el.style.color = color || '#888'; }
+    }
+
+    function driveEnsureToken(operazione) {
+        if (CLIENT_ID === 'IL_TUO_CLIENT_ID_QUI') {
+            alert('Per usare Google Drive, inserisci il tuo Client ID nel codice (variabile CLIENT_ID).');
+            return false;
+        }
+        if (driveToken && Date.now() < driveTokenExpiry) return true;
+        driveOperazionePendente = operazione;
+        if (!driveTokenClient) driveInit();
+        driveTokenClient.requestAccessToken({ prompt: driveToken ? '' : 'consent' });
+        return false;
+    }
+
+    async function driveEsporta() {
+        if (!driveEnsureToken('esporta')) return;
+        await _driveEsporta();
+    }
+
+    async function _driveEsporta() {
+        driveSetStatus('⏳ Esportazione in corso…', '#888');
+        const db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
+        const ferieSpettanti = localStorage.getItem('ferie_spettanti') || '0';
+        let contenuto = `FERIE_SPETTANTI\t${ferieSpettanti}\n`;
+        contenuto += 'DATA\tORARIO\tPAUSA\tEXTRA\tMINUTI\n';
+        db.sort((a, b) => new Date(a.data) - new Date(b.data)).forEach(i => {
+            contenuto += `${i.data}\t${i.orario}\t${i.pausa}\t${i.straord}\t${i.minuti}\n`;
+        });
+
+        try {
+            // Cerca se esiste già il file
+            const fileId = await driveTrovaFile();
+            let url, method;
+            if (fileId) {
+                url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`;
+                method = 'PATCH';
+            } else {
+                url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+                method = 'POST';
+            }
+
+            const metadata = { name: DRIVE_FILE_NAME, mimeType: 'text/plain' };
+            const boundary = 'myorario_boundary';
+            const body = [
+                `--${boundary}`,
+                'Content-Type: application/json; charset=UTF-8',
+                '',
+                JSON.stringify(metadata),
+                `--${boundary}`,
+                'Content-Type: text/plain; charset=UTF-8',
+                '',
+                contenuto,
+                `--${boundary}--`
+            ].join('\r\n');
+
+            const resp = await fetch(url, {
+                method,
+                headers: {
+                    'Authorization': `Bearer ${driveToken}`,
+                    'Content-Type': `multipart/related; boundary=${boundary}`
+                },
+                body
+            });
+
+            if (!resp.ok) throw new Error(await resp.text());
+            driveSetStatus('✓ Esportato su Drive', '#5a9e6f');
+        } catch (e) {
+            console.error(e);
+            driveSetStatus('Errore esportazione', 'red');
+        }
+    }
+
+    async function driveImporta() {
+        if (!driveEnsureToken('importa')) return;
+        await _driveImporta();
+    }
+
+    async function _driveImporta() {
+        driveSetStatus('⏳ Importazione in corso…', '#888');
+        try {
+            const fileId = await driveTrovaFile();
+            if (!fileId) {
+                driveSetStatus('Nessun file trovato su Drive', 'orange');
+                return;
+            }
+            const resp = await fetch(
+                `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+                { headers: { 'Authorization': `Bearer ${driveToken}` } }
+            );
+            if (!resp.ok) throw new Error(await resp.text());
+            const testo = await resp.text();
+
+            // Usa la stessa logica di elaboraImportazione
+            let db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
+            testo.split('\n').forEach((r) => {
+                if (!r.trim()) return;
+                const c = r.split('\t');
+                if (c[0].trim() === 'FERIE_SPETTANTI') {
+                    localStorage.setItem('ferie_spettanti', parseInt(c[1]) || 0);
+                    return;
+                }
+                if (c[0].trim() === 'DATA') return;
+                if (c.length >= 5) {
+                    db = db.filter(i => i.data !== c[0].trim());
+                    db.push({
+                        id: Date.now() + Math.random(),
+                        data: c[0].trim(), orario: c[1].trim(),
+                        pausa: parseInt(c[2]), straord: parseInt(c[3]), minuti: parseInt(c[4])
+                    });
+                }
+            });
+            localStorage.setItem(DB_NAME, JSON.stringify(db));
+            render();
+            driveSetStatus('✓ Importato da Drive', '#5a9e6f');
+            toggleMenu('modalSettings', false);
+        } catch (e) {
+            console.error(e);
+            driveSetStatus('Errore importazione', 'red');
+        }
+    }
+
+    async function driveTrovaFile() {
+        const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+        const resp = await fetch(
+            `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&spaces=drive`,
+            { headers: { 'Authorization': `Bearer ${driveToken}` } }
+        );
+        const data = await resp.json();
+        return data.files && data.files.length > 0 ? data.files[0].id : null;
+    }
+
+    window.onload = () => {
+        document.getElementById('inData').value = new Date().toISOString().split('T')[0];
+        const savedTheme = localStorage.getItem('user_theme') || 'salvia';
+        setTheme(savedTheme);
+        const inputs = ['inInizio', 'inFine', 'inPausa', 'inStraord'];
+        inputs.forEach(id => {
+            document.getElementById(id).addEventListener('input', calcolaAnteprima);
+        });
+
+        // NUOVO: highlight turno odierno
+        highlightTurnoOggi();
+
+        // Google Drive init
+        if (window.google) driveInit();
+        else document.querySelector('script[src*="gsi/client"]')
+            .addEventListener('load', driveInit);
+
+        render();
+    };
+
+    // ══════════════════════════════════════════════
+    // NUOVA FUNZIONE 2: Highlight turno odierno
+    // ══════════════════════════════════════════════
+    function highlightTurnoOggi() {
+        const oggi = new Date();
+        const giorno = String(oggi.getDate()).padStart(2, '0');
+        const mese = String(oggi.getMonth() + 1).padStart(2, '0');
+        const dataStr = `${giorno}/${mese}`;
+
+        const righe = document.querySelectorAll('#corpoTurni tr');
+        righe.forEach(tr => {
+            const primaCell = tr.querySelector('td');
+            if (primaCell && primaCell.textContent.trim() === dataStr) {
+                tr.classList.add('oggi-turno');
+                // Scroll automatico alla riga di oggi quando si apre la pagina turni
+                tr.dataset.isToday = 'true';
+            }
+        });
+    }
+
+    // Scroll automatico al turno di oggi
+    function scrollATurnoOggi() {
+        const rigaOggi = document.querySelector('#corpoTurni tr[data-is-today="true"]');
+        if (rigaOggi) {
+            setTimeout(() => {
+                rigaOggi.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+        }
+    }
+
+    // ══════════════════════════════════════════════
+    // NUOVA FUNZIONE 3: Swipe-to-delete sulle righe
+    // ══════════════════════════════════════════════
+    function abilitaSwipeDelete(tbody) {
+        // Ogni riga che ha un pulsante td-del può essere swipata
+        const righe = tbody.querySelectorAll('tr');
+        righe.forEach(tr => {
+            const delBtn = tr.querySelector('.td-del');
+            if (!delBtn) return;
+
+            let startX = 0;
+            let currentX = 0;
+            let isDragging = false;
+            const SOGLIA = 70; // px per attivare l'eliminazione
+
+            tr.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+                isDragging = true;
+            }, { passive: true });
+
+            tr.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                currentX = e.touches[0].clientX;
+                const diff = startX - currentX;
+                if (diff > 0) {
+                    const offset = Math.min(diff, 90);
+                    tr.style.transform = `translateX(-${offset}px)`;
+                    if (diff > SOGLIA) {
+                        tr.style.background = '#f9d5d1';
+                    } else {
+                        tr.style.background = '';
+                    }
+                }
+            }, { passive: true });
+
+            tr.addEventListener('touchend', () => {
+                if (!isDragging) return;
+                isDragging = false;
+                const diff = startX - currentX;
+                if (diff > SOGLIA) {
+                    // Animazione di uscita poi elimina
+                    tr.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+                    tr.style.transform = 'translateX(-110%)';
+                    tr.style.opacity = '0';
+                    setTimeout(() => { delBtn.click(); }, 200);
+                } else {
+                    tr.style.transition = 'transform 0.2s ease';
+                    tr.style.transform = '';
+                    tr.style.background = '';
+                    setTimeout(() => { tr.style.transition = ''; }, 200);
+                }
+            });
+        });
+    }
+
+    function setTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('user_theme', theme);
+        const themes = { 'salvia': '#f3f5f0', 'napoli': '#e8f4f9', 'pomodoro': '#fdf2f0' };
+        document.documentElement.style.backgroundColor = themes[theme];
+        document.querySelector('meta[name="theme-color"]').content = themes[theme];
+    }
+
+    function toggleMenu(id, show) { document.getElementById(id).style.display = show ? 'flex' : 'none'; }
+
+    function switchPage(pageId, element) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        element.classList.add('active');
+        document.getElementById('header-main').style.display = (pageId === 'page-add') ? 'flex' : 'none';
+        if (pageId === 'page-shifts') scrollATurnoOggi();
+        if (pageId === 'page-history') renderArchivio();
+    }
+
+    function timeToMins(t) {
+        if (!t) return 0;
+        const [h, m] = t.split(':').map(Number);
+        return (h * 60) + (m || 0);
+    }
+
+    function calcolaAnteprima() {
+        let ini = document.getElementById('inInizio').value;
+        let fin = document.getElementById('inFine').value;
+        const pau = parseInt(document.getElementById('inPausa').value) || 0;
+        const str = parseInt(document.getElementById('inStraord').value) || 0;
+        const display = document.getElementById('anteprimaOre');
+        if (ini && fin) {
+            let iniEffettivo = timeToMins(ini) < timeToMins(LIMITE_INGRESSO) ? LIMITE_INGRESSO : ini;
+            let finEffettivo = timeToMins(fin) > timeToMins(LIMITE_USCITA) ? LIMITE_USCITA : fin;
+            let diff = (timeToMins(finEffettivo) - timeToMins(iniEffettivo)) - pau + str;
+            if (diff < 0) diff += 1440;
+            display.innerHTML = `TOT (Limiti applicati): <b>${Math.floor(diff/60)}h ${diff%60}m</b>`;
+        } else {
+            display.innerText = ' ';
+        }
+    }
+
+    function checkConflitto(tipo) {
+        const data = document.getElementById('inData').value;
+        const db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
+        if (db.some(i => i.data === data)) {
+            toggleMenu('modalConflict', true);
+            document.getElementById('btnSovrascrivi').onclick = () => { toggleMenu('modalConflict', false); salvaGiorno(tipo); };
+        } else {
+            salvaGiorno(tipo);
+        }
+    }
+
+    function salvaGiorno(tipo) {
+        const data = document.getElementById('inData').value;
+        let minuti, orario, pausa = 0, extra = 0;
+        if (tipo === 'MANUALE') {
+            let inizio = document.getElementById('inInizio').value;
+            let fine = document.getElementById('inFine').value;
+            if (!inizio || !fine) return;
+            let inizioPerCalcolo = timeToMins(inizio) < timeToMins(LIMITE_INGRESSO) ? LIMITE_INGRESSO : inizio;
+            let finePerCalcolo = timeToMins(fine) > timeToMins(LIMITE_USCITA) ? LIMITE_USCITA : fine;
+            pausa = parseInt(document.getElementById('inPausa').value) || 0;
+            extra = parseInt(document.getElementById('inStraord').value) || 0;
+            minuti = (timeToMins(finePerCalcolo) - timeToMins(inizioPerCalcolo)) - pausa + extra;
+            orario = `${inizio}-${fine}`;
+        } else {
+            minuti = (tipo === 'FERIE' ? 0 : MIN_TARGET);
+            orario = tipo;
+        }
+        let db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
+        db = db.filter(i => i.data !== data);
+        db.push({ id: Date.now(), data, orario, pausa, straord: extra, minuti });
+        localStorage.setItem(DB_NAME, JSON.stringify(db.sort((a, b) => new Date(b.data) - new Date(a.data))));
+        const toast = document.getElementById('toast-inserito');
+        toast.style.display = 'block';
+        setTimeout(() => toast.style.display = 'none', 2000);
+        render();
+    }
+
+    function rimuovi(id) {
+        let db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
+        localStorage.setItem(DB_NAME, JSON.stringify(db.filter(item => item.id != id)));
+        render();
+    }
+
+    function getMonday(d) {
+        let date = new Date(d);
+        const day = date.getDay();
+        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+        const mon = new Date(date.setDate(diff));
+        mon.setHours(0, 0, 0, 0);
+        return mon;
+    }
+
+    // Calcola la Pasqua con l'algoritmo di Butcher
+    function calcolaPasqua(anno) {
+        const a = anno % 19, b = Math.floor(anno / 100), c = anno % 100;
+        const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+        const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+        const i = Math.floor(c / 4), k = c % 4;
+        const l = (32 + 2 * e + 2 * i - h - k) % 7;
+        const m = Math.floor((a + 11 * h + 22 * l) / 451);
+        const mese = Math.floor((h + l - 7 * m + 114) / 31) - 1; // 0-based
+        const giorno = ((h + l - 7 * m + 114) % 31) + 1;
+        return new Date(anno, mese, giorno);
+    }
+
+    function isFestivo(anno, mese, giorno) {
+        // Festivi fissi (mese 0-based)
+        const fissi = [
+            [0, 1],   // Capodanno
+            [0, 6],   // Epifania
+            [3, 25],  // Liberazione
+            [4, 1],   // Festa del Lavoro
+            [5, 2],   // Repubblica
+            [7, 15],  // Ferragosto
+            [10, 1],  // Ognissanti
+            [11, 8],  // Immacolata
+            [11, 25], // Natale
+            [11, 26], // S. Stefano
+        ];
+        if (fissi.some(([m, g]) => m === mese && g === giorno)) return true;
+        // Pasqua e Pasquetta
+        const pasqua = calcolaPasqua(anno);
+        const pasquetta = new Date(pasqua); pasquetta.setDate(pasquetta.getDate() + 1);
+        if (pasqua.getMonth() === mese && pasqua.getDate() === giorno) return true;
+        if (pasquetta.getMonth() === mese && pasquetta.getDate() === giorno) return true;
+        return false;
+    }
+
+    function giorniLavorativiDelMese(anno, mese) {
+        const numGiorni = new Date(anno, mese + 1, 0).getDate();
+        let count = 0;
+        for (let d = 1; d <= numGiorni; d++) {
+            const dow = new Date(anno, mese, d).getDay();
+            if (dow !== 0 && dow !== 6 && !isFestivo(anno, mese, d)) count++;
+        }
+        return count;
+    }
+
+    function render() {
+        const db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
+        const oggi = new Date();
+        const lunStr = getMonday(oggi).toISOString().split('T')[0];
+
+        const gruppi = {};
+        db.forEach(i => {
+            const m = getMonday(i.data).toISOString().split('T')[0];
+            if (!gruppi[m]) gruppi[m] = [];
+            gruppi[m].push(i);
+        });
+
+        const storicoTbody = document.getElementById('areaStorico');
+        if (storicoTbody) renderStoricoSettimana(db);
+        // aggiorna calendario archivio se la pagina è aperta
+        if (document.getElementById('page-history').classList.contains('active')) renderCalendarioArchivio();
+
+        const curr = (gruppi[lunStr] || []).sort((a, b) => new Date(a.data) - new Date(b.data));
+        let mTot = 0;
+        curr.forEach(i => { mTot += i.minuti; });
+
+        document.getElementById('oreSettimana').innerText = `${Math.floor(mTot/60)}h ${mTot%60}m`;
+        document.getElementById('barFill').style.width = Math.min((mTot / (36 * 60)) * 100, 100) + '%';
+        const diffSett = (36 * 60) - mTot;
+        document.getElementById('mancantiSettimana').innerText = diffSett > 0
+            ? `Mancano ${Math.floor(diffSett/60)}h ${diffSett%60}m`
+            : '✓ Target raggiunto!';
+
+        const anno = oggi.getFullYear();
+        const mese = oggi.getMonth();
+        const targetMese = giorniLavorativiDelMese(anno, mese) * MIN_TARGET;
+
+        const totMese = db
+            .filter(i => {
+                const d = new Date(i.data);
+                return d.getMonth() === mese && d.getFullYear() === anno;
+            })
+            .reduce((acc, i) => acc + i.minuti, 0);
+
+        document.getElementById('oreMese').innerText = `${Math.floor(totMese/60)}h ${totMese%60}m`;
+        document.getElementById('barFillMese').style.width = Math.min((totMese / targetMese) * 100, 100) + '%';
+        const diffMese = targetMese - totMese;
+        document.getElementById('mancantiMese').innerText = diffMese > 0
+            ? `Mancano ${Math.floor(diffMese/60)}h ${diffMese%60}m`
+            : '✓ Target raggiunto!';
+
+        aggiornaFerieUI();
+        renderEspanso();
+    }
+
+    function espandi(tipo) {
+        modalitaCorrente = tipo;
+        const cardSett = document.getElementById('cardSett');
+        const cardMese = document.getElementById('cardMese');
+        cardSett.style.boxShadow = tipo === 'settimana' ? '0 0 0 3px var(--primary-dark)' : '';
+        cardMese.style.boxShadow = tipo === 'mese' ? '0 0 0 3px var(--primary-dark)' : '';
+        renderEspanso();
+    }
+
+    function renderEspanso() {
+        const db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
+        const contenuto = document.getElementById('contenutoEspanso');
+        if (!contenuto) return;
+
+        if (modalitaCorrente === 'settimana') {
+            const oggi = new Date();
+            const lunStr = getMonday(oggi).toISOString().split('T')[0];
+            const weekData = db
+                .filter(i => getMonday(i.data).toISOString().split('T')[0] === lunStr)
+                .sort((a, b) => new Date(a.data) - new Date(b.data));
+
+            if (weekData.length === 0) {
+                contenuto.innerHTML = '<p style="text-align:center; opacity:0.5; font-size:13px; padding:20px 0;">Nessuna registrazione questa settimana</p>';
+                return;
+            }
+            let html = `<table style="width:100%;">
+                <thead><tr>
+                    <th>Giorno</th><th>Orario</th><th>P</th><th>Tot</th><th>BP</th><th></th>
+                </tr></thead><tbody id="tbodySettimana">`;
+            weekData.forEach(i => {
+                const day = new Date(i.data).toLocaleDateString('it-IT', { weekday: 'short' }).toUpperCase();
+                const bp = i.minuti > 361 ? '<b style="color:#27ae60;">OK</b>' : '';
+                html += `<tr>
+                    <td>${day}</td>
+                    <td style="font-size:11px;">${i.orario}</td>
+                    <td>${i.pausa}m</td>
+                    <td><b>${Math.floor(i.minuti/60)}h ${i.minuti%60}m</b></td>
+                    <td style="text-align:center;">${bp}</td>
+                    <td class="td-del" onclick="rimuovi(${i.id})">×</td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            contenuto.innerHTML = html;
+            // NUOVO: abilita swipe sulla vista settimana
+            const tbodyS = document.getElementById('tbodySettimana');
+            if (tbodyS) abilitaSwipeDelete(tbodyS);
+
+        } else if (modalitaCorrente === 'mese') {
+            const oggi = new Date();
+            const anno = oggi.getFullYear();
+            const mese = oggi.getMonth();
+            const primoGiorno = new Date(anno, mese, 1).getDay();
+            const giorniNelMese = new Date(anno, mese + 1, 0).getDate();
+            const offsetLun = (primoGiorno === 0 ? 6 : primoGiorno - 1);
+            const nomeMese = oggi.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }).toUpperCase();
+
+            let html = `
+            <div style="text-align:center; font-weight:900; font-size:12px; padding:12px 0 8px; color:var(--primary-dark); letter-spacing:1px;">
+                ${nomeMese}
+            </div>
+            <div class="cal-grid">
+                <div class="cal-header">L</div>
+                <div class="cal-header">M</div>
+                <div class="cal-header">M</div>
+                <div class="cal-header">G</div>
+                <div class="cal-header">V</div>
+                <div class="cal-header" style="opacity:0.4;">S</div>
+                <div class="cal-header" style="opacity:0.4;">D</div>
+            `;
+            for (let i = 0; i < offsetLun; i++) html += `<div></div>`;
+
+            for (let d = 1; d <= giorniNelMese; d++) {
+                const dataStr = `${anno}-${String(mese+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const entry = db.find(i => i.data === dataStr);
+                const dow = new Date(anno, mese, d).getDay();
+                const isWeekend = dow === 0 || dow === 6;
+                const isOggi = d === oggi.getDate();
+
+                let cellStyle = isWeekend ? 'opacity:0.35;' : '';
+                let contenutoCella = '';
+                const borderStyle = isOggi ? 'box-shadow:0 0 0 2px var(--primary-dark);' : '';
+
+                if (entry) {
+                    const h = Math.floor(entry.minuti / 60);
+                    const m = entry.minuti % 60;
+                    if (entry.orario === 'FERIE') {
+                        cellStyle = 'background:var(--cal-ferie);';
+                        contenutoCella = `<div class="cal-cell-sub" style="color:var(--primary-dark);">FER</div>`;
+                    } else if (entry.orario === 'SMART') {
+                        cellStyle = 'background:var(--cal-smart);';
+                        contenutoCella = `<div class="cal-cell-sub" style="color:var(--cal-day-text);">SMR</div>`;
+                    } else {
+                        cellStyle = 'background:var(--cal-day);';
+                        contenutoCella = `<div class="cal-cell-sub" style="color:var(--cal-day-text);">${h}h${m > 0 ? ' '+m+'m' : ''}</div>`;
+                    }
+                }
+                html += `<div class="cal-cell" style="${cellStyle} ${borderStyle}">
+                    <div class="cal-cell-label" style="font-weight:${isOggi ? '900' : '400'};">${d}</div>
+                    ${contenutoCella}
+                </div>`;
+            }
+            html += '</div>';
+            contenuto.innerHTML = html;
+
+        } else {
+            contenuto.innerHTML = '<p style="text-align:center; opacity:0.5; font-size:13px; padding:20px 0;">Tocca una card per i dettagli</p>';
+        }
+    }
+
+    // ══════════════════════════════════════════════
+    // ARCHIVIO: tab switch, navigazione mese, render
+    // ══════════════════════════════════════════════
+    function switchArchivio(vista) {
+        vistaArchivio = vista;
+        document.getElementById('tabMese').classList.toggle('active', vista === 'mese');
+        document.getElementById('tabSettimana').classList.toggle('active', vista === 'settimana');
+        document.getElementById('archivioMese').style.display = vista === 'mese' ? 'block' : 'none';
+        document.getElementById('archivioSettimana').style.display = vista === 'settimana' ? 'block' : 'none';
+        if (vista === 'mese') renderCalendarioArchivio();
+    }
+
+    function mesePrecedente() {
+        archivioMeseIdx--;
+        if (archivioMeseIdx < 0) { archivioMeseIdx = 11; archivioAnno--; }
+        renderCalendarioArchivio();
+    }
+
+    function meseSuccessivo() {
+        archivioMeseIdx++;
+        if (archivioMeseIdx > 11) { archivioMeseIdx = 0; archivioAnno++; }
+        renderCalendarioArchivio();
+    }
+
+    function renderArchivio() {
+        switchArchivio(vistaArchivio);
+        // aggiorna anche lo storico settimanale se visibile
+        if (vistaArchivio === 'settimana') {
+            const db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
+            renderStoricoSettimana(db);
+        }
+    }
+
+    function renderCalendarioArchivio() {
+        const db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
+        const anno = archivioAnno;
+        const mese = archivioMeseIdx;
+        const oggiRef = new Date();
+
+        // Titolo
+        const nomeMese = new Date(anno, mese, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }).toUpperCase();
+        document.getElementById('titoloMeseArchivio').innerText = nomeMese;
+
+        // Calendario
+        const primoGiorno = new Date(anno, mese, 1).getDay();
+        const giorniNelMese = new Date(anno, mese + 1, 0).getDate();
+        const offsetLun = (primoGiorno === 0 ? 6 : primoGiorno - 1);
+
+        let html = `<div class="cal-grid">`;
+        ['L','M','M','G','V','S','D'].forEach((g, i) => {
+            html += `<div class="cal-header" style="${i >= 5 ? 'opacity:0.4;' : ''}">${g}</div>`;
+        });
+        for (let i = 0; i < offsetLun; i++) html += `<div></div>`;
+
+        // Stats counters
+        let giorniLavorati = 0, bpCount = 0, straordTot = 0, minutiTot = 0;
+        const targetMese = giorniLavorativiDelMese(anno, mese) * MIN_TARGET;
+
+        for (let d = 1; d <= giorniNelMese; d++) {
+            const dataStr = `${anno}-${String(mese+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const entry = db.find(i => i.data === dataStr);
+            const dow = new Date(anno, mese, d).getDay();
+            const isWeekend = dow === 0 || dow === 6;
+            const isOggi = d === oggiRef.getDate() && mese === oggiRef.getMonth() && anno === oggiRef.getFullYear();
+
+            let cellStyle = isWeekend ? 'opacity:0.35;' : '';
+            let contenuto = '';
+            const borderStyle = isOggi ? 'box-shadow:0 0 0 2px var(--primary-dark);' : '';
+
+            if (entry) {
+                minutiTot += entry.minuti;
+                if (entry.orario === 'FERIE') {
+                    cellStyle = 'background:var(--cal-ferie);';
+                    contenuto = `<div class="cal-cell-sub" style="color:var(--primary-dark);">FER</div>`;
+                } else {
+                    if (entry.orario !== 'FERIE') giorniLavorati++;
+                    if (entry.minuti > 361) bpCount++;
+                    if (entry.straord > 0) straordTot += entry.straord;
+
+                    if (entry.orario === 'SMART') {
+                        cellStyle = 'background:var(--cal-smart);';
+                        contenuto = `<div class="cal-cell-sub" style="color:var(--cal-day-text);">SMR</div>`;
+                    } else {
+                        const h = Math.floor(entry.minuti / 60);
+                        const m = entry.minuti % 60;
+                        cellStyle = 'background:var(--cal-day);';
+                        contenuto = `<div class="cal-cell-sub" style="color:var(--cal-day-text);">${h}h${m > 0 ? m+'m' : ''}</div>`;
+                    }
+                }
+            }
+
+            html += `<div class="cal-cell" style="${cellStyle} ${borderStyle}">
+                <div class="cal-cell-label" style="font-weight:${isOggi ? '900' : '400'};">${d}</div>
+                ${contenuto}
+            </div>`;
+        }
+        html += '</div>';
+        document.getElementById('calendarioArchivio').innerHTML = html;
+
+        // Riepilogo
+        const diff = minutiTot - targetMese;
+        const diffAbs = Math.abs(diff);
+        const diffStr = `${diff >= 0 ? '+' : '-'}${Math.floor(diffAbs/60)}h ${diffAbs%60}m`;
+        const diffClass = diff >= 0 ? 'surplus' : 'deficit';
+
+        document.getElementById('riepilogoArchivio').innerHTML = `
+            <div class="riepilogo-item">
+                <div class="riepilogo-label">📅 Giorni lavorati</div>
+                <div class="riepilogo-val">${giorniLavorati}</div>
+            </div>
+            <div class="riepilogo-item">
+                <div class="riepilogo-label">🎫 Buoni pasto</div>
+                <div class="riepilogo-val">${bpCount}</div>
+            </div>
+            <div class="riepilogo-item">
+                <div class="riepilogo-label">⏱ Straordinario</div>
+                <div class="riepilogo-val">${straordTot > 0 ? Math.floor(straordTot/60)+'h '+(straordTot%60)+'m' : '—'}</div>
+            </div>
+            <div class="riepilogo-item">
+                <div class="riepilogo-label">${diff >= 0 ? '✅ Surplus ore' : '⚠️ Deficit ore'}</div>
+                <div class="riepilogo-val ${diffClass}">${minutiTot === 0 ? '—' : diffStr}</div>
+            </div>
+        `;
+    }
+
+    function renderStoricoSettimana(db) {
+        const oggi = new Date();
+        const gruppi = {};
+        db.forEach(i => {
+            const m = getMonday(i.data).toISOString().split('T')[0];
+            if (!gruppi[m]) gruppi[m] = [];
+            gruppi[m].push(i);
+        });
+        let hStorico = '';
+        Object.keys(gruppi).sort().reverse().forEach(k => {
+            let totM = 0;
+            gruppi[k].sort((a, b) => new Date(a.data) - new Date(b.data)).forEach(i => {
+                totM += i.minuti;
+                const bp = i.minuti > 361 ? '<b style="color:#27ae60;">OK</b>' : '';
+                hStorico += `<tr>
+                    <td>${i.data.split('-').reverse().slice(0,2).join('/')}</td>
+                    <td>${i.orario}</td>
+                    <td>${i.pausa}m</td>
+                    <td>${i.straord}m</td>
+                    <td><b>${Math.floor(i.minuti/60)}h ${i.minuti%60}m</b></td>
+                    <td style="text-align:center;">${bp}</td>
+                    <td class="td-del" onclick="rimuovi(${i.id})">×</td>
+                </tr>`;
+            });
+            hStorico += `<tr style="background:var(--bg); font-size:10px;">
+                <td colspan="7" style="text-align:right; padding:10px;">
+                    <b>SETTIMANA: ${Math.floor(totM/60)}h ${totM%60}m</b>
+                </td>
+            </tr>`;
+        });
+        const tbody = document.getElementById('areaStorico');
+        tbody.innerHTML = hStorico || "<tr><td colspan='7'>Nessun dato</td></tr>";
+        abilitaSwipeDelete(tbody);
+    }
+
+    function aggiornaFerieUI() {
+        const db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
+        const fruite = db.filter(i => i.orario === 'FERIE').length;
+        const spettanti = localStorage.getItem('ferie_spettanti') || 0;
+        document.getElementById('ferieFruite').innerText = fruite;
+        document.getElementById('ferieRimanenti').innerText = spettanti - fruite;
+    }
+
+    function apriStatBP() {
+        const db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
+        const mensili = {};
+        db.forEach(i => {
+            if (i.minuti > 361) {
+                const m = i.data.substring(0, 7);
+                mensili[m] = (mensili[m] || 0) + 1;
+            }
+        });
+        let html = '';
+        Object.keys(mensili).sort().reverse().forEach(m => {
+            const nomeMese = new Date(m + '-01').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }).toUpperCase();
+            html += `<div class="stats-row"><span>${nomeMese}</span><b>${mensili[m]}</b></div>`;
+        });
+        document.getElementById('listaBP').innerHTML = html || 'Nessun buono pasto.';
+        toggleMenu('modalStats', false);
+        toggleMenu('modalBP', true);
+    }
+
+    function apriStatExtra() {
+        const db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
+        const mensili = {};
+        db.forEach(i => {
+            if (i.straord > 0) {
+                const m = i.data.substring(0, 7);
+                mensili[m] = (mensili[m] || 0) + i.straord;
+            }
+        });
+        let html = '';
+        Object.keys(mensili).sort().reverse().forEach(m => {
+            const nomeMese = new Date(m + '-01').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }).toUpperCase();
+            html += `<div class="stats-row"><span>${nomeMese}</span><b>${Math.floor(mensili[m]/60)}h ${mensili[m]%60}m</b></div>`;
+        });
+        document.getElementById('listaExtra').innerHTML = html || 'Nessun extra.';
+        toggleMenu('modalStats', false);
+        toggleMenu('modalExtra', true);
+    }
+
+    function apriStatFerie() {
+        document.getElementById('ferieSpettanti').value = localStorage.getItem('ferie_spettanti') || 0;
+        aggiornaFerieUI();
+        toggleMenu('modalStats', false);
+        toggleMenu('modalFerie', true);
+    }
+
+    function salvaFerieSpettanti() {
+        localStorage.setItem('ferie_spettanti', document.getElementById('ferieSpettanti').value || 0);
+        aggiornaFerieUI();
+    }
+
+    function resetTotale() {
+        localStorage.setItem(DB_NAME, JSON.stringify([]));
+        render();
+        toggleMenu('modalReset', false);
+    }
+
+    function copiaPerSheets() {
+        const db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
+        const ferieSpettanti = localStorage.getItem('ferie_spettanti') || '0';
+        let t = `FERIE_SPETTANTI\t${ferieSpettanti}\n`;
+        t += 'DATA\tORARIO\tPAUSA\tEXTRA\tMINUTI\n';
+        db.sort((a, b) => new Date(a.data) - new Date(b.data)).forEach(i => {
+            t += `${i.data}\t${i.orario}\t${i.pausa}\t${i.straord}\t${i.minuti}\n`;
+        });
+        navigator.clipboard.writeText(t).then(() => alert('Copiato!'));
+    }
+
+    function elaboraImportazione() {
+        const testo = document.getElementById('importText').value;
+        if (!testo) return;
+        let db = JSON.parse(localStorage.getItem(DB_NAME) || '[]');
+        testo.split('\n').forEach((r, idx) => {
+            if (!r.trim()) return;
+            const c = r.split('\t');
+            // Riga ferie spettanti
+            if (c[0].trim() === 'FERIE_SPETTANTI') {
+                localStorage.setItem('ferie_spettanti', parseInt(c[1]) || 0);
+                return;
+            }
+            // Riga intestazione
+            if (c[0].trim() === 'DATA') return;
+            if (c.length >= 5) {
+                db = db.filter(i => i.data !== c[0].trim());
+                db.push({
+                    id: Date.now() + idx,
+                    data: c[0].trim(),
+                    orario: c[1].trim(),
+                    pausa: parseInt(c[2]),
+                    straord: parseInt(c[3]),
+                    minuti: parseInt(c[4])
+                });
+            }
+        });
+        localStorage.setItem(DB_NAME, JSON.stringify(db));
+        render();
+        toggleMenu('modalImport', false);
+    }
+</script>
+
+</body>
+</html>
